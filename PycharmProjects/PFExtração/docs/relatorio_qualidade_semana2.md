@@ -1,6 +1,6 @@
 # Relatório Curto de Qualidade de Dados (Semana 2)
 
-## 📊 Sumário da Validação de Dados
+## Sumário da Validação de Dados
 
 * **Filtro de Tradução Linguística Integrado:**
   * Os países em português da Wikipedia foram traduzidos/mapeados para alinhar com o Inglês do Banco Mundial.
