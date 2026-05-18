@@ -30,13 +30,34 @@ Logs de Desenvolvimento:
 - Solução: Adição de Request Headers simulando um navegador real.
 - Uso de IA: Utilizada para acelerar a criação do fluxo de diretórios dinâmico e estruturar o tratamento de exceções nos pedidos HTTP.
 
+##  Fase 2: Transformação e Qualidade de Dados (Semana 2)
+Nesta fase, o pipeline processa os dados brutos da camada `raw` e consolida-os na camada `staging`.
+
+### O que é feito:
+1. **Limpeza e Tipificação:** Conversão de strings e campos aninhados do Banco Mundial para tipos numéricos apropriados (`float` e `int`).
+2. **Data Quality (Regras de Validação):**
+   - Remoção de registos com indicadores analíticos nulos.
+   - Forçamento de intervalos plausíveis (Percentagem de utilizadores de internet restrita a [0, 100]).
+   - Garantia de integridade (PIB não pode ser negativo).
+3. **Estratégia de Matching (Cruzamento):** Resolução de divergências de nomes de países entre a API do Banco Mundial e o Scraping (ex: mapeamento de "Russia" para "Russian Federation").
+
+
 Como Executar:
 Instalar dependências:
+
 pip install -r requirements.txt
-
+```bash
 Configurar o ficheiro .env na raiz com:
+```
 Fragmento do código:
+```bash
 API_URL=https://api.worldbank.org/v2
-
+```
 Executar o pipeline de extração:
+```bash
 python src/extract.py
+```
+Executar o pipeline de transformação:
+```bash
+python src/transform.py
+```
