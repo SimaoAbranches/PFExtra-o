@@ -20,6 +20,20 @@ Plaintext
 ├── requirements.txt   # Dependências (pandas, requests, lxml, python-dotenv)
 └── README.md          # Documentação
 
+```mermaid
+graph TD
+    A[API Banco Mundial: Internet JSON] -->|extract.py| B[(data/raw/internet_usage_all.json)]
+    C[API Banco Mundial: PIB JSON] -->|extract.py| D[(data/raw/pib_all.json)]
+    E[Wikipedia: Velocidades Scraping] -->|extract.py| F[(data/raw/internet_speeds_scraping.csv)]
+
+    B -->|transform.py: Limpeza & DQ| G{Inner Join por País/Ano}
+    D -->|transform.py: Limpeza & DQ| G
+    F -->|transform.py: Mapeamento de Nomes| H{Left Join Global}
+
+    G --> H
+    H -->|Métrica Derivada + Auditoria| I[(data/staging/fact_economy_internet_staging.csv)]
+    H -->|Autogeração| J[docs/relatorio_qualidade_semana2.md]
+```
 Decisões Técnicas e Implementação:
 - Ficheiros salvos com prefixos claros por indicador e formato original (pib_all.json).
 - Implementado registo visual na consola para monitorizar o estado de cada chamada à API e sucesso do scraping.
