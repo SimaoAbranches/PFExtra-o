@@ -1,77 +1,100 @@
-Projeto ETD: Engenharia de Dados & Visualização Analítica
+# Projeto ETD
 
-O objetivo é analisar a relação entre o desenvolvimento económico (PIB) e a infraestrutura digital (Internet).
+O objetivo principal deste projeto é conceber e implementar um pipeline de dados (ETL) para analisar a relação entre o desenvolvimento económico (PIB) e a infraestrutura digital (Uso e Velocidade de Internet) à escala global.
 
-Estado do Projeto: Semana 1 (Extract)
-Nesta fase, estabelecemos a fundação do pipeline, focando na recolha de dados brutos (Raw) e na organização do ambiente de trabalho.
+**Estado Atual:** Semana 3 (Load / Modelação de Dados) concluída.
 
-Fontes de Dados:
+---
+
+# 1. Fontes de Dados (Extract)
 A extração foca-se em três pilares, garantindo a rastreabilidade e integridade:
-- API Banco Mundial (JSON): Recolha dos indicadores de Penetração de Internet (IT.NET.USER.ZS) e PIB (NY.GDP.MKTP.CD). Implementada com paginação (1000 registos/página) para eficiência.
-- Wikipedia (Scraping/CSV): Extração de Velocidades de Internet via scraping da lista global de países. Implementado com User-Agent para garantir acessibilidade e evitar bloqueios.
-- Licenciamento: Dados públicos sob a licença World Bank Dataset Terms of Use (CC-BY 4.0).
+* **API Banco Mundial (JSON):** Recolha dos indicadores de Penetração de Internet (`IT.NET.USER.ZS`) e PIB (`NY.GDP.MKTP.CD`). Implementada com paginação (1000 registos/página) para eficiência.
+* **Wikipedia (Scraping/CSV):** Extração de Velocidades de Internet via *scraping* da lista global de países. Implementado com *User-Agent* para garantir acessibilidade e evitar bloqueios.
+* **Licenciamento:** Dados públicos sob a licença *World Bank Dataset Terms of Use* (CC-BY 4.0).
 
-Estrutura do Repositório:
-Plaintext
-├── data/raw/          # Dados brutos imutáveis (JSON/CSV)
-├── src/               # Código fonte
-│   └── extract.py     # Script de extração, scraping e logging
-├── .env               # Configurações de API (excluído do Git por segurança)
-├── requirements.txt   # Dependências (pandas, requests, lxml, python-dotenv)
-└── README.md          # Documentação
+---
+
+# 2. Estrutura do Repositório
+```plaintext
+├── data/
+│   ├── raw/                 # Dados brutos (JSON/CSV)
+│   ├── staging/             # Dados limpos e integrados (CSV intermédios)
+│   └── economia_internet.db # Base de dados SQLite (Modelo Dimensional)
+├── src/
+│   ├── extract.py           # Extração e download de dados
+│   ├── transform.py         # Limpeza, Data Quality e cruzamento
+│   └── load.py              # Modelação em Star Schema e carregamento SQL
+├── docs/                    # Relatórios e documentação adicional
+├── .env                     # Configurações de API 
+├── requirements.txt         # Dependências do projeto
+└── README.md                # Documentação principal
+```
+
+# 3. Arquitetura do Pipeline
 
 ```mermaid
 graph TD
+    %% Extract Phase
     A[API Banco Mundial: Internet JSON] -->|extract.py| B[(data/raw/internet_usage_all.json)]
     C[API Banco Mundial: PIB JSON] -->|extract.py| D[(data/raw/pib_all.json)]
     E[Wikipedia: Velocidades Scraping] -->|extract.py| F[(data/raw/internet_speeds_scraping.csv)]
 
+    %% Transform Phase
     B -->|transform.py: Limpeza & DQ| G{Inner Join por País/Ano}
     D -->|transform.py: Limpeza & DQ| G
-    F -->|transform.py: Mapeamento de Nomes| H{Left Join Global}
-
+    F -->|transform.py: Mapeamento| H{Left Join Global}
     G --> H
     H -->|Métrica Derivada + Auditoria| I[(data/staging/fact_economy_internet_staging.csv)]
-    H -->|Autogeração| J[docs/relatorio_qualidade_semana2.md]
+
+    %% Load Phase
+    I -->|load.py: Criação Star Schema| J[(SQLite: fct_economy_internet)]
+    I -->|load.py: Tabela Dimensão| K[(SQLite: dim_countries)]
+    I -->|load.py: Tabela Dimensão| L[(SQLite: dim_time)]
 ```
-Decisões Técnicas e Implementação:
-- Ficheiros salvos com prefixos claros por indicador e formato original (pib_all.json).
-- Implementado registo visual na consola para monitorizar o estado de cada chamada à API e sucesso do scraping.
-- Os dados são guardados sem alterações na camada raw, garantindo que o pipeline possa ser reexecutado de forma determinística.
+    
+# 4. Fases do Pipeline e Decisões Técnicas
+Semana 1: Extração (Raw)
 
-Logs de Desenvolvimento:
-- Desafio: Bloqueio 403 no scraping da Wikipedia.
-- Solução: Adição de Request Headers simulando um navegador real.
-- Uso de IA: Utilizada para acelerar a criação do fluxo de diretórios dinâmico e estruturar o tratamento de exceções nos pedidos HTTP.
+- Os ficheiros são guardados com prefixos claros e no formato original (json/csv) na camada raw, garantindo a reprodutibilidade.
 
-##  Fase 2: Transformação e Qualidade de Dados (Semana 2)
-Nesta fase, o pipeline processa os dados brutos da camada `raw` e consolida-os na camada `staging`.
+- Tratamento de bloqueios de scraping 403 com injeção de Request Headers simulando um navegador. Registo visual na consola para monitorizar o estado das chamadas à API.
 
-### O que é feito:
-1. **Limpeza e Tipificação:** Conversão de strings e campos aninhados do Banco Mundial para tipos numéricos apropriados (`float` e `int`).
-2. **Data Quality (Regras de Validação):**
-   - Remoção de registos com indicadores analíticos nulos.
-   - Forçamento de intervalos plausíveis (Percentagem de utilizadores de internet restrita a [0, 100]).
-   - Garantia de integridade (PIB não pode ser negativo).
-3. **Estratégia de Matching (Cruzamento):** Resolução de divergências de nomes de países entre a API do Banco Mundial e o Scraping (ex: mapeamento de "Russia" para "Russian Federation").
+Semana 2: Transformação (Staging & Data Quality)
 
+- Conversão de strings e campos aninhados em tipos numéricos (float e int).
 
-Como Executar:
+- Remoção de registos com indicadores essenciais nulos, forçamento de intervalos lógicos (Internet % restrita a [0, 100], PIB estritamente positivo).
+
+- Resolução de divergências de nomes (ex: "Russia" para "Russian Federation") para garantir um Join eficaz entre o Banco Mundial e a Wikipedia.
+
+Semana 3: Carregamento (Load & Star Schema)
+
+- Escolha do SQLite embutido para garantir portabilidade e fácil execução local.
+
+- Criação de um Star Schema com as tabelas dim_countries, dim_time e a tabela central fct_economy_internet, com chaves primárias e estrangeiras a garantir integridade referencial.
+
+- Script integrado que verifica de forma autónoma se o volume de dados na tabela de factos corresponde exatamente aos registos transformados na staging area.
+
+# 5. Como Executar o Projeto
 Instalar dependências:
 
 pip install -r requirements.txt
-```bash
-Configurar o ficheiro .env na raiz com:
-```
-Fragmento do código:
-```bash
-API_URL=https://api.worldbank.org/v2
-```
-Executar o pipeline de extração:
-```bash
+
+Configurar variáveis de ambiente:
+Cria um ficheiro .env na raiz do projeto com o seguinte conteúdo:
+
+Fragmento do código
+API_URL=[https://api.worldbank.org/v2](https://api.worldbank.org/v2)
+
+Executar as fases do Pipeline sequencialmente:
+
+## 1: Extração de Dados
 python src/extract.py
-```
-Executar o pipeline de transformação:
-```bash
+
+## 2: Transformação e Qualidade
 python src/transform.py
-```
+
+## 3: Carregamento para a Base de Dados
+python src/load.py
+
+---
