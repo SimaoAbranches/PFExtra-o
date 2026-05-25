@@ -1,31 +1,154 @@
-Country/Territory,Average connection speed (Mbit/s)
-United States,150.5
-Canada,135.2
-Mexico,52.1
-Brazil,75.2
-Argentina,48.6
-Chile,120.4
-United Kingdom,120.2
-France,128.5
-Germany,115.4
-Italy,92.1
-Spain,142.8
-Portugal,135.2
-Netherlands,165.3
-South Korea,210.1
-Japan,168.4
-China,140.3
-India,50.2
-Singapore,225.8
-Indonesia,30.5
-Saudi Arabia,95.1
-South Africa,42.3
-Egypt,35.8
-Nigeria,25.1
-Kenya,22.4
-Morocco,38.9
-Australia,110.5
-New Zealand,125.3
-Russia,85.4
-Turkey,45.7
-Switzerland,155.6
+Country/Territory,Mediandownloadspeed(Mbit/s)
+Singapore,425.46
+United Arab Emirates,384.51
+Hong Kong,352.4
+France,352.35
+Iceland,347.3
+Chile,334.99
+Macau,318.05
+United States,309.8
+Switzerland,292.56
+Denmark,291.6
+Romania,283.06
+Vietnam,281.72
+Israel,281.29
+Thailand,279.65
+Spain,277.98
+Canada,277.7
+Taiwan,270.85
+Peru,258.37
+South Korea,257.76
+Japan,255.27
+Hungary,251.72
+Portugal,243.84
+Netherlands,237.66
+Kuwait,230.24
+Poland,223.25
+Brazil,221.53
+Luxembourg,221.23
+Ireland,220.71
+Panama,219.49
+Lithuania,218.67
+Colombia,214.3
+Sweden,213.29
+Qatar,211.97
+Malta,209.61
+China,206.91
+New Zealand,201.91
+Slovenia,200.99
+Jordan,194.1
+Uruguay,181.44
+Finland,180.47
+Norway,177.11
+United Kingdom,172.24
+Ecuador,169.66
+Costa Rica,169.03
+Malaysia,168.07
+Saudi Arabia,167.93
+Cyprus,165.55
+Trinidad and Tobago,158.25
+Australia,154.09
+Moldova,153.46
+Latvia,146.87
+Bahrain,145.88
+Montenegro,144.78
+Guyana,141.12
+Belgium,140.97
+Croatia,136.75
+Paraguay,118.56
+Italy,117.11
+Slovakia,114.33
+Austria,114.0
+Argentina,111.54
+Philippines,109.86
+El Salvador,108.77
+Mexico,104.25
+Germany,103.72
+Serbia,102.35
+Venezuela,100.11
+Oman,96.05
+Estonia,95.32
+Nicaragua,95.11
+Grenada,94.79
+Bulgaria,94.44
+Greece,94.29
+Albania,93.64
+Uzbekistan,93.35
+Guatemala,92.98
+Czech Republic,92.71
+Egypt,92.5
+Ukraine,92.24
+Honduras,92.0
+Azerbaijan,91.37
+Russia,91.29
+Belarus,90.61
+Brunei,90.29
+Kosovo,89.32
+Kazakhstan,88.1
+Kyrgyzstan,87.14
+Jamaica,86.55
+Palestine,85.12
+Nepal,84.34
+Armenia,84.16
+Bahamas,83.79
+Mongolia,83.35
+Turkey,80.02
+Suriname,74.2
+Dominican Republic,72.63
+Bolivia,67.01
+Bangladesh,66.02
+Ivory Coast,62.7
+Mauritius,61.24
+India,60.85
+Algeria,59.95
+North Macedonia,56.88
+Mauritania,56.45
+Laos,56.3
+Morocco,56.22
+Cambodia,53.08
+Haiti,52.33
+Belize,50.45
+Burkina Faso,50.02
+Ghana,49.64
+South Africa,48.9
+Botswana,47.78
+DR Congo,46.07
+Indonesia,45.91
+Antigua and Barbuda,45.11
+Tajikistan,45.1
+Georgia,44.73
+Iraq,44.19
+Rwanda,43.52
+Mozambique,40.68
+Gabon,39.17
+Sri Lanka,38.61
+Senegal,38.06
+Nigeria,36.81
+Bosnia and Herzegovina,36.8
+Maldives,36.72
+Togo,35.17
+Zambia,32.92
+Madagascar,32.5
+Myanmar,30.94
+Benin,30.6
+Zimbabwe,30.4
+Uganda,30.25
+Iran,26.0
+Mali,24.2
+Tanzania,23.84
+Angola,22.87
+Somalia,21.22
+Tunisia,20.24
+Lebanon,19.9
+Djibouti,18.06
+Pakistan,17.9
+Guinea,17.81
+Cameroon,17.41
+Namibia,17.01
+Kenya,16.48
+Yemen,16.07
+Libya,11.65
+Ethiopia,11.17
+Afghanistan,4.93
+Syria,4.24
+Cuba,3.83

@@ -1,103 +1,156 @@
 import os
-import requests
 import json
+import time
+import requests
+from bs4 import BeautifulSoup
 import pandas as pd
-from dotenv import load_dotenv
+from io import StringIO  # 🌟 Adicionado para corrigir o bug do read_html
 
-# Carrega variáveis de ambiente do ficheiro .env
-load_dotenv()
-API_URL = os.getenv("API_URL")
-
-# Descobre a pasta onde este ficheiro está (src) e sobe um nível para a raiz do projeto
+# =============================================================================
+# PATHS
+# =============================================================================
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# Define a pasta data/raw na raiz do projeto, fora de src
 DATA_RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
+os.makedirs(DATA_RAW_DIR, exist_ok=True)
+
+# =============================================================================
+# CONFIGURAÇÃO: os 30 países que existem na Wikipedia CSV
+# Chaves ISO3 do Banco Mundial → nomes exatos que o Banco Mundial usa
+# =============================================================================
+PAISES_ALVO_ISO3 = [
+    "USA", "CAN", "MEX", "BRA", "ARG", "CHL",
+    "GBR", "FRA", "DEU", "ITA", "ESP", "PRT", "NLD", "CHE",
+    "KOR", "JPN", "CHN", "IND", "SGP", "IDN",
+    "SAU", "ZAF", "EGY", "NGA", "KEN", "MAR",
+    "AUS", "NZL", "RUS", "TUR"
+]
+
+# URL base da API do Banco Mundial
+API_BASE = "https://api.worldbank.org/v2"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+}
 
 
-def extrair_tecnologia_conectividade(pais="all"):
-    """
-    Extrai dados de penetração de Internet da API do Banco Mundial.
-    Peso na avaliação: Dataset de maior volume (camada Raw).
-    """
-    print(f"A iniciar extração de conetividade (Banco Mundial) para: {pais}...")
-    # Indicador: IT.NET.USER.ZS | pedimos 1000 registos por página
-    endpoint = f"{API_URL}/country/{pais}/indicator/IT.NET.USER.ZS?format=json&per_page=1000"
+# =============================================================================
+# FUNÇÃO: Extrair indicador do Banco Mundial para países específicos
+# =============================================================================
+def extrair_indicador_banco_mundial(indicador: str, nome_ficheiro: str):
+    codigos = ";".join(PAISES_ALVO_ISO3)
+    url = (
+        f"{API_BASE}/country/{codigos}/indicator/{indicador}"
+        f"?format=json&per_page=1000&date=2000:2024"
+    )
 
-    try:
-        os.makedirs(DATA_RAW_DIR, exist_ok=True)
-        response = requests.get(endpoint, timeout=60)
-        response.raise_for_status()
-        dados = response.json()
+    print(f"\n[EXTRACT] Indicador: {indicador}")
+    print(f"[EXTRACT] URL: {url}")
 
-        caminho_bruto = os.path.join(DATA_RAW_DIR, f"internet_usage_{pais}.json")
-        with open(caminho_bruto, "w", encoding="utf-8") as f:
-            json.dump(dados, f, indent=4)
+    todos_os_registos = []
+    pagina = 1
 
-        print(f"Sucesso! Dados guardados em: {caminho_bruto}")
-    except Exception as e:
-        print(f"Erro na extração de internet: {e}")
+    while True:
+        url_paginada = f"{url}&page={pagina}"
+        try:
+            resposta = requests.get(url_paginada, headers=HEADERS, timeout=30)
+            resposta.raise_for_status()
+            dados = resposta.json()
+        except Exception as e:
+            print(f"[ERRO] Falha na página {pagina}: {e}")
+            break
+
+        meta = dados[0]
+        registos = dados[1] if len(dados) > 1 else []
+
+        if not registos:
+            print(f"[WARN] Sem registos na página {pagina}.")
+            break
+
+        todos_os_registos.extend(registos)
+        print(f"[OK] Página {pagina}/{meta.get('pages')} — {len(registos)} registos")
+
+        if pagina >= meta.get("pages", 1):
+            break
+
+        pagina += 1
+        time.sleep(0.5)  # respeitar rate limit
+
+    print(f"[EXTRACT] Total recolhido: {len(todos_os_registos)} registos para '{indicador}'")
+
+    caminho = os.path.join(DATA_RAW_DIR, nome_ficheiro)
+    with open(caminho, "w", encoding="utf-8") as f:
+        json.dump([{"total": len(todos_os_registos)}, todos_os_registos], f, ensure_ascii=False, indent=2)
+
+    print(f"[SAVE] Guardado em: {caminho}")
+    return todos_os_registos
 
 
-def extrair_dados_pib(pais="all"):
-    """
-    Extrai dados de PIB (GDP) da API do Banco Mundial para comparação socioeconómica.
-    """
-    print(f"A iniciar extração de PIB (Banco Mundial) para: {pais}...")
-    # Indicador: NY.GDP.MKTP.CD
-    endpoint = f"{API_URL}/country/{pais}/indicator/NY.GDP.MKTP.CD?format=json&per_page=1000"
-
-    try:
-        os.makedirs(DATA_RAW_DIR, exist_ok=True)
-        response = requests.get(endpoint, timeout=60)
-        response.raise_for_status()
-        dados = response.json()
-
-        caminho_bruto = os.path.join(DATA_RAW_DIR, f"pib_{pais}.json")
-        with open(caminho_bruto, "w", encoding="utf-8") as f:
-            json.dump(dados, f, indent=4)
-
-        print(f"Sucesso! Dados guardados em: {caminho_bruto}")
-    except Exception as e:
-        print(f"Erro na extração de PIB: {e}")
-
-
-def scrape_velocidade_internet():
-    """
-    Realiza Web Scraping de velocidades de internet da Wikipedia.
-    Demonstra robustez técnica com headers de User-Agent e tratamento de exceções.
-    """
-    print("A iniciar scraping de velocidades de internet (Wikipedia)...")
+# =============================================================================
+# FUNÇÃO: Scraping da Wikipedia (CORRIGIDA)
+# =============================================================================
+def extrair_velocidades_wikipedia():
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_Internet_connection_speeds"
-
-    # Headers para evitar erro 403 (Forbidden)
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
+    print(f"\n[SCRAPING] Wikipedia: {url}")
 
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-
-        # O Pandas processa o HTML e procura tabelas
-        tabelas = pd.read_html(response.text)
-        df_velocidade = tabelas[0]
-
-        caminho = os.path.join(DATA_RAW_DIR, "internet_speeds_scraping.csv")
-        df_velocidade.to_csv(caminho, index=False)
-        print(f"Sucesso! Dados de scraping guardados em: {caminho}")
-
+        resposta = requests.get(url, headers=HEADERS, timeout=30)
+        resposta.raise_for_status()
     except Exception as e:
-        # Tratamento de erro silencioso para não interromper o pipeline principal
-        print(f"Erro no scraping: Ocorreu um problema ao aceder à tabela (HTML dinâmico).")
+        print(f"[ERRO] Scraping falhou: {e}")
+        return
+
+    soup = BeautifulSoup(resposta.text, "html.parser")
+    tabelas = soup.find_all("table", {"class": "wikitable"})
+
+    if not tabelas:
+        print("[WARN] Nenhuma tabela wikitable encontrada.")
+        return
+
+    for tabela in tabelas:
+        colunas_verificar = [str(th.text).lower() for th in tabela.find_all("th")]
+        if any("speed" in c or "mbit" in c or "country" in c for c in colunas_verificar):
+            # 🌟 CORREÇÃO: Converter a string HTML num stream em memória com StringIO
+            html_stream = StringIO(str(tabela))
+            df = pd.read_html(html_stream)[0]
+
+            caminho = os.path.join(DATA_RAW_DIR, "internet_speeds_scraping.csv")
+            df.to_csv(caminho, index=False, encoding="utf-8")
+            print(f"[OK] {len(df)} países guardados em: {caminho}")
+            print(f"[OK] Colunas: {df.columns.tolist()}")
+            return
+
+    print("[WARN] Nenhuma tabela com colunas de velocidade encontrada.")
 
 
+# =============================================================================
+# MAIN
+# =============================================================================
 if __name__ == "__main__":
-    print("Iniciando Pipeline de Extração")
+    print("=" * 60)
+    print("PIPELINE DE EXTRAÇÃO — VERSÃO CORRIGIDA")
+    print("Objetivo: extrair dados a nível de PAÍSES INDIVIDUAIS")
+    print("============================================================")
 
-    # Execução do pipeline modular
-    extrair_tecnologia_conectividade("all")
-    extrair_dados_pib("all")
-    scrape_velocidade_internet()
+    # 1. Internet usage
+    extrair_indicador_banco_mundial(
+        indicador="IT.NET.USER.ZS",
+        nome_ficheiro="internet_usage_all.json"
+    )
 
-    print("Processo de Extração Concluído com Sucesso!")
+    # 2. PIB
+    extrair_indicador_banco_mundial(
+        indicador="NY.GDP.MKTP.CD",
+        nome_ficheiro="pib_all.json"
+    )
+
+    # 3. Velocidades de internet (Wikipedia)
+    extrair_velocidades_wikipedia()
+
+    print("\n" + "=" * 60)
+    print("Extração concluída com sucesso!")
+    print("=" * 60)
 
