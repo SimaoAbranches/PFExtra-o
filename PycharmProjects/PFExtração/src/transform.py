@@ -207,7 +207,7 @@ def transformar_e_integrar():
     print(f"  [OK] Países únicos: {df_final['country_name'].nunique()}")
     print(f"  [OK] Anos cobertos: {int(df_final['year'].min())} – {int(df_final['year'].max())}")
 
-    # GERAR RELATÓRIO DE QUALIDADE
+    # GERAR RELATÓRIO
     gerar_relatorio(df_final, df_internet, df_pib, df_wiki, paises_com_vel)
 
     return df_final
