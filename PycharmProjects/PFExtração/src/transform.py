@@ -2,26 +2,20 @@ import os
 import json
 import pandas as pd
 
-# =============================================================================
-# PATHS
-# =============================================================================
+#Caminhos 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
 DATA_STAGING_DIR = os.path.join(BASE_DIR, "data", "staging")
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
 
-# =============================================================================
 # FIX PRINCIPAL: Mapeamento de nomes entre Wikipedia e Banco Mundial
-#
 # O Banco Mundial usa nomes oficiais/formais que diferem dos nomes comuns
 # usados na Wikipedia. Sem este mapeamento, o Left Join produz 0 matches.
-#
 # Formato: "NOME_WIKIPEDIA_UPPERCASE" -> "NOME_BANCO_MUNDIAL_UPPERCASE"
-# =============================================================================
 MAPA_NOMES_WIKI_PARA_BANCO_MUNDIAL = {
     "RUSSIA": "RUSSIAN FEDERATION",
     "SOUTH KOREA": "KOREA, REP.",
-    "TURKEY": "TURKIYE",  # Banco Mundial actualizou em 2022
+    "TURKEY": "TURKIYE",  
     "EGYPT": "EGYPT, ARAB REP.",
     "IRAN": "IRAN, ISLAMIC REP.",
     "VENEZUELA": "VENEZUELA, RB",
@@ -57,7 +51,7 @@ def processar_banco_mundial(dados_lista: list, nome_coluna_valor: str) -> pd.Dat
     ignorados_agregados = 0
 
     for item in dados_lista:
-        # --- FILTRO NOVO: remover agregados regionais ---
+        # remover agregados regionais
         regiao = item.get("region", {})
         if isinstance(regiao, dict) and regiao.get("value") == "Aggregates":
             ignorados_agregados += 1
@@ -84,7 +78,7 @@ def processar_banco_mundial(dados_lista: list, nome_coluna_valor: str) -> pd.Dat
 
 def aplicar_regras_qualidade(df: pd.DataFrame, nome: str) -> pd.DataFrame:
     """
-    Aplica as regras de qualidade de dados definidas no enunciado:
+    Aplica as regras de qualidade:
       1. Remover nulos analíticos
       2. Forçar intervalos plausíveis
       3. Garantir integridade (PIB não negativo)
@@ -117,9 +111,7 @@ def transformar_e_integrar():
     os.makedirs(DATA_STAGING_DIR, exist_ok=True)
     os.makedirs(DOCS_DIR, exist_ok=True)
 
-    # =========================================================================
     # 1. CARREGAR DADOS BRUTOS
-    # =========================================================================
     print("\n[1/6] A carregar dados brutos...")
     dados_raw_internet = carregar_json_banco_mundial("internet_usage_all.json")
     dados_raw_pib = carregar_json_banco_mundial("pib_all.json")
@@ -130,9 +122,7 @@ def transformar_e_integrar():
     print(f"  Raw PIB:      {len(dados_raw_pib)} registos JSON")
     print(f"  Raw Wikipedia:{len(df_wiki_raw)} países")
 
-    # =========================================================================
     # 2. PROCESSAR E LIMPAR BANCO MUNDIAL
-    # =========================================================================
     print("\n[2/6] A processar e limpar dados do Banco Mundial...")
     df_internet = processar_banco_mundial(dados_raw_internet, "internet_usage_pct")
     df_pib = processar_banco_mundial(dados_raw_pib, "gdp_usd")
@@ -146,9 +136,7 @@ def transformar_e_integrar():
     df_internet = aplicar_regras_qualidade(df_internet, "Internet")
     df_pib = aplicar_regras_qualidade(df_pib, "PIB")
 
-    # =========================================================================
     # 3. INNER JOIN: Banco Mundial (Internet × PIB)
-    # =========================================================================
     print("\n[3/6] A cruzar Internet × PIB (Inner Join por país e ano)...")
     df_banco_mundial = pd.merge(
         df_internet[["country_code", "country_name", "year", "internet_usage_pct"]],
@@ -159,10 +147,8 @@ def transformar_e_integrar():
     print(f"  Resultado: {len(df_banco_mundial)} linhas | "
           f"{df_banco_mundial['country_name'].nunique()} países únicos")
 
-    # =========================================================================
     # 4. PREPARAR DADOS DA WIKIPEDIA
     #    FIX: aplicar mapeamento de nomes antes do join
-    # =========================================================================
     print("\n[4/6] A preparar dados da Wikipedia com mapeamento de nomes...")
     df_wiki = df_wiki_raw.copy()
 
@@ -184,10 +170,8 @@ def transformar_e_integrar():
     for _, row in df_wiki[df_wiki["wiki_country"] != df_wiki["wiki_country_mapped"]].iterrows():
         print(f"    '{row['wiki_country']}' → '{row['wiki_country_mapped']}'")
 
-    # =========================================================================
     # 5. LEFT JOIN: Banco Mundial ← Wikipedia
     #    Usa a coluna mapeada para garantir matches correctos
-    # =========================================================================
     print("\n[5/6] A acoplar velocidades da Wikipedia (Left Join)...")
     colunas_wiki = ["wiki_country_mapped", "wiki_country_original", "avg_connection_speed_mbit"]
     colunas_wiki_existentes = [c for c in colunas_wiki if c in df_wiki.columns]
@@ -215,9 +199,7 @@ def transformar_e_integrar():
     df_final.sort_values(by=["country_name", "year"], inplace=True)
     df_final.reset_index(drop=True, inplace=True)
 
-    # =========================================================================
     # 6. GRAVAR STAGING
-    # =========================================================================
     print("\n[6/6] A guardar camada staging...")
     caminho_saida = os.path.join(DATA_STAGING_DIR, "fact_economy_internet_staging.csv")
     df_final.to_csv(caminho_saida, index=False, encoding="utf-8")
@@ -225,9 +207,7 @@ def transformar_e_integrar():
     print(f"  [OK] Países únicos: {df_final['country_name'].nunique()}")
     print(f"  [OK] Anos cobertos: {int(df_final['year'].min())} – {int(df_final['year'].max())}")
 
-    # =========================================================================
     # GERAR RELATÓRIO DE QUALIDADE
-    # =========================================================================
     gerar_relatorio(df_final, df_internet, df_pib, df_wiki, paises_com_vel)
 
     return df_final
