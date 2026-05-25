@@ -1,14 +1,11 @@
 # Relatório de Qualidade de Dados — Semana 2
 
-## Sumário da Validação
+## Sumário da Validação de Dados
 
-| Métrica | Valor |
-|---|---|
-| Países únicos em staging | 30 |
-| Total de linhas (país × ano) | 747 |
-| Linhas com velocidade Wikipedia | 747 |
-| Países com dados de velocidade | 30 |
-| Anos cobertos | 2000 – 2024 |
+* **Filtro de Alinhamento Geopolítico:**
+  * O pipeline preservou o histórico macroeconómico completo do Banco Mundial.
+  * **Total de Países e Entidades Geográficas em Staging:** 266 entidades.
+  * **Nota de Integração (Wikipedia):** Devido à disparidade linguística entre os dois datasets analíticos (Wikipedia em Português e Banco Mundial em Inglês), os dados de velocidade foram acoplados via Left Join, preservando a integridade dos dados económicos e aceitando valores nulos nas velocidades para evitar a perda de histórico.
 
 ## Fontes Processadas
 
