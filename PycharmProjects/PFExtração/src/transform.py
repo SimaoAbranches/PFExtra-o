@@ -8,10 +8,7 @@ DATA_RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
 DATA_STAGING_DIR = os.path.join(BASE_DIR, "data", "staging")
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
 
-# FIX PRINCIPAL: Mapeamento de nomes entre Wikipedia e Banco Mundial
-# O Banco Mundial usa nomes oficiais/formais que diferem dos nomes comuns
-# usados na Wikipedia. Sem este mapeamento, o Left Join produz 0 matches.
-# Formato: "NOME_WIKIPEDIA_UPPERCASE" -> "NOME_BANCO_MUNDIAL_UPPERCASE"
+# mapeamento de nomes entre Wikipedia e Banco Mundial
 MAPA_NOMES_WIKI_PARA_BANCO_MUNDIAL = {
     "RUSSIA": "RUSSIAN FEDERATION",
     "SOUTH KOREA": "KOREA, REP.",
@@ -27,7 +24,6 @@ MAPA_NOMES_WIKI_PARA_BANCO_MUNDIAL = {
 
 
 def carregar_json_banco_mundial(nome_ficheiro: str) -> list:
-    """Carrega JSON do Banco Mundial e retorna a lista de registos."""
     caminho = os.path.join(DATA_RAW_DIR, nome_ficheiro)
     if not os.path.exists(caminho):
         raise FileNotFoundError(f"Ficheiro não encontrado: {caminho}")
@@ -39,14 +35,7 @@ def carregar_json_banco_mundial(nome_ficheiro: str) -> list:
 
 
 def processar_banco_mundial(dados_lista: list, nome_coluna_valor: str) -> pd.DataFrame:
-    """
-    Converte a lista raw do Banco Mundial num DataFrame limpo.
-
-    FIX: Agora também filtra entidades do tipo 'Aggregates' (regiões),
-    garantindo que só ficam países individuais no pipeline.
-    O campo 'region' do Banco Mundial tem valor {'id': 'NA', 'value': 'Aggregates'}
-    para entidades não-país.
-    """
+    #Converte a lista raw do Banco Mundial num DataFrame limpo
     registos = []
     ignorados_agregados = 0
 
@@ -71,31 +60,25 @@ def processar_banco_mundial(dados_lista: list, nome_coluna_valor: str) -> pd.Dat
             })
 
     if ignorados_agregados:
-        print(f"  [DQ] {ignorados_agregados} agregados regionais removidos.")
+        print(f" {ignorados_agregados} agregados regionais removidos.")
 
     return pd.DataFrame(registos)
 
 
 def aplicar_regras_qualidade(df: pd.DataFrame, nome: str) -> pd.DataFrame:
-    """
-    Aplica as regras de qualidade:
-      1. Remover nulos analíticos
-      2. Forçar intervalos plausíveis
-      3. Garantir integridade (PIB não negativo)
-    """
     n_inicial = len(df)
     coluna_valor = [c for c in df.columns if c not in ("country_code", "country_name", "year")][0]
 
-    # Regra 1: Remover nulos analíticos
+    # remover nulos analíticos
     df = df.dropna(subset=[coluna_valor])
 
-    # Regra 2 & 3: Intervalos plausíveis
+    # intervalos plausíveis
     if "internet_usage_pct" in df.columns:
         df = df[(df["internet_usage_pct"] >= 0) & (df["internet_usage_pct"] <= 100)]
     if "gdp_usd" in df.columns:
         df = df[df["gdp_usd"] > 0]
 
-    # Regra 4: Remover duplicados
+    # remover duplicados
     n_dup = df.duplicated(subset=["country_name", "year"]).sum()
     df = df.drop_duplicates(subset=["country_name", "year"])
 
@@ -105,14 +88,12 @@ def aplicar_regras_qualidade(df: pd.DataFrame, nome: str) -> pd.DataFrame:
 
 
 def transformar_e_integrar():
-    print("\n" + "=" * 60)
-    print("PIPELINE DE TRANSFORMAÇÃO — VERSÃO CORRIGIDA")
-    print("=" * 60)
+    print("PIPELINE DE TRANSFORMAÇÃO")
     os.makedirs(DATA_STAGING_DIR, exist_ok=True)
     os.makedirs(DOCS_DIR, exist_ok=True)
 
-    # 1. CARREGAR DADOS BRUTOS
-    print("\n[1/6] A carregar dados brutos...")
+    # carregar dados brutos
+    print("\nA carregar dados brutos.")
     dados_raw_internet = carregar_json_banco_mundial("internet_usage_all.json")
     dados_raw_pib = carregar_json_banco_mundial("pib_all.json")
     caminho_wiki = os.path.join(DATA_RAW_DIR, "internet_speeds_scraping.csv")
@@ -122,47 +103,46 @@ def transformar_e_integrar():
     print(f"  Raw PIB:      {len(dados_raw_pib)} registos JSON")
     print(f"  Raw Wikipedia:{len(df_wiki_raw)} países")
 
-    # 2. PROCESSAR E LIMPAR BANCO MUNDIAL
-    print("\n[2/6] A processar e limpar dados do Banco Mundial...")
+    # processar e limpar
+    print("\nA processar e limpar dados do Banco Mundial.")
     df_internet = processar_banco_mundial(dados_raw_internet, "internet_usage_pct")
     df_pib = processar_banco_mundial(dados_raw_pib, "gdp_usd")
 
-    # Alinhamento de tipos
+    # alinhamento de tipos
     for df in (df_internet, df_pib):
         df["year"] = pd.to_numeric(df["year"], errors="coerce")
         df["country_name"] = df["country_name"].astype(str).str.strip().str.upper()
 
-    # Aplicar regras de qualidade
+    # aplicar regras de qualidade
     df_internet = aplicar_regras_qualidade(df_internet, "Internet")
     df_pib = aplicar_regras_qualidade(df_pib, "PIB")
 
-    # 3. INNER JOIN: Banco Mundial (Internet × PIB)
-    print("\n[3/6] A cruzar Internet × PIB (Inner Join por país e ano)...")
+    # inner join: Banco Mundial (Internet × PIB)
+    print("\nA cruzar Internet × PIB (Inner Join por país e ano).")
     df_banco_mundial = pd.merge(
         df_internet[["country_code", "country_name", "year", "internet_usage_pct"]],
         df_pib[["country_name", "year", "gdp_usd"]],
         on=["country_name", "year"],
         how="inner"
     )
-    print(f"  Resultado: {len(df_banco_mundial)} linhas | "
+    print(f"  Resultado: {len(df_banco_mundial)} linhas "
           f"{df_banco_mundial['country_name'].nunique()} países únicos")
 
-    # 4. PREPARAR DADOS DA WIKIPEDIA
-    #    FIX: aplicar mapeamento de nomes antes do join
-    print("\n[4/6] A preparar dados da Wikipedia com mapeamento de nomes...")
+    #preparar dados da wikipedia
+    print("\nA preparar dados da Wikipedia com mapeamento de nomes.")
     df_wiki = df_wiki_raw.copy()
 
-    # Normalizar nome da coluna de país
+    # normalizar nome da coluna de país
     coluna_pais = df_wiki.columns[0]
     df_wiki.rename(columns={coluna_pais: "wiki_country_original"}, inplace=True)
     df_wiki["wiki_country"] = df_wiki["wiki_country_original"].astype(str).str.strip().str.upper()
 
-    # Normalizar nome da coluna de velocidade
+    # normalizar nome da coluna de velocidade
     colunas_velocidade = [c for c in df_wiki.columns if "speed" in c.lower() or "mbit" in c.lower()]
     if colunas_velocidade:
         df_wiki.rename(columns={colunas_velocidade[0]: "avg_connection_speed_mbit"}, inplace=True)
 
-    # Aplicar mapeamento de nomes
+    # aplicar mapeamento de nomes
     df_wiki["wiki_country_mapped"] = df_wiki["wiki_country"].replace(MAPA_NOMES_WIKI_PARA_BANCO_MUNDIAL)
 
     matches_aplicados = (df_wiki["wiki_country"] != df_wiki["wiki_country_mapped"]).sum()
@@ -170,8 +150,7 @@ def transformar_e_integrar():
     for _, row in df_wiki[df_wiki["wiki_country"] != df_wiki["wiki_country_mapped"]].iterrows():
         print(f"    '{row['wiki_country']}' → '{row['wiki_country_mapped']}'")
 
-    # 5. LEFT JOIN: Banco Mundial ← Wikipedia
-    #    Usa a coluna mapeada para garantir matches correctos
+    # left join: Banco Mundial- Wikipedia
     print("\n[5/6] A acoplar velocidades da Wikipedia (Left Join)...")
     colunas_wiki = ["wiki_country_mapped", "wiki_country_original", "avg_connection_speed_mbit"]
     colunas_wiki_existentes = [c for c in colunas_wiki if c in df_wiki.columns]
@@ -184,37 +163,35 @@ def transformar_e_integrar():
         how="left"
     )
 
-    # Limpar coluna auxiliar de mapeamento
     df_final.drop(columns=["wiki_country_mapped"], errors="ignore", inplace=True)
 
-    # Estatísticas de matching
+    # estatísticas de matching
     n_com_velocidade = df_final["avg_connection_speed_mbit"].notna().sum()
     paises_com_vel = df_final[df_final["avg_connection_speed_mbit"].notna()]["country_name"].nunique()
     print(f"  Linhas COM velocidade: {n_com_velocidade} ({paises_com_vel} países)")
     print(f"  Linhas SEM velocidade: {df_final['avg_connection_speed_mbit'].isna().sum()} (aceitável — Left Join)")
 
-    # Formatação final
+    # formatação final
     df_final["country_name"] = df_final["country_name"].str.title()
     df_final["pipeline_processed_at"] = pd.Timestamp.now()
     df_final.sort_values(by=["country_name", "year"], inplace=True)
     df_final.reset_index(drop=True, inplace=True)
 
-    # 6. GRAVAR STAGING
-    print("\n[6/6] A guardar camada staging...")
+    # gravar staging
+    print("\nA guardar camada staging.")
     caminho_saida = os.path.join(DATA_STAGING_DIR, "fact_economy_internet_staging.csv")
     df_final.to_csv(caminho_saida, index=False, encoding="utf-8")
-    print(f"  [OK] {len(df_final)} linhas guardadas em: {caminho_saida}")
-    print(f"  [OK] Países únicos: {df_final['country_name'].nunique()}")
-    print(f"  [OK] Anos cobertos: {int(df_final['year'].min())} – {int(df_final['year'].max())}")
+    print(f"   {len(df_final)} linhas guardadas em: {caminho_saida}")
+    print(f"   Países únicos: {df_final['country_name'].nunique()}")
+    print(f"   Anos cobertos: {int(df_final['year'].min())} – {int(df_final['year'].max())}")
 
-    # GERAR RELATÓRIO
+    # gerar relatorio
     gerar_relatorio(df_final, df_internet, df_pib, df_wiki, paises_com_vel)
 
     return df_final
 
 
 def gerar_relatorio(df_final, df_internet, df_pib, df_wiki, paises_com_vel):
-    """Gera automaticamente o relatório de qualidade de dados."""
     caminho = os.path.join(DOCS_DIR, "relatorio_qualidade_semana2.md")
     n_total = len(df_final)
     n_paises = df_final["country_name"].nunique()
@@ -267,7 +244,7 @@ para os casos em que o Banco Mundial usa nomes oficiais distintos dos nomes comu
 
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(relatorio)
-    print(f"\n  [OK] Relatório gerado em: {caminho}")
+    print(f"\n   Relatório gerado em: {caminho}")
 
 
 if __name__ == "__main__":

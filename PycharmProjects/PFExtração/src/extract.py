@@ -4,19 +4,16 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from io import StringIO  # 🌟 Adicionado para corrigir o bug do read_html
+from io import StringIO  
 
-# =============================================================================
-# PATHS
-# =============================================================================
+
+#paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
 os.makedirs(DATA_RAW_DIR, exist_ok=True)
 
-# =============================================================================
-# CONFIGURAÇÃO: os 30 países que existem na Wikipedia CSV
-# Chaves ISO3 do Banco Mundial → nomes exatos que o Banco Mundial usa
-# =============================================================================
+
+# 30 países que existem na Wikipedia CSV
 PAISES_ALVO_ISO3 = [
     "USA", "CAN", "MEX", "BRA", "ARG", "CHL",
     "GBR", "FRA", "DEU", "ITA", "ESP", "PRT", "NLD", "CHE",
@@ -37,9 +34,7 @@ HEADERS = {
 }
 
 
-# =============================================================================
-# FUNÇÃO: Extrair indicador do Banco Mundial para países específicos
-# =============================================================================
+#extrair indicador do Banco Mundial para países específicos
 def extrair_indicador_banco_mundial(indicador: str, nome_ficheiro: str):
     codigos = ";".join(PAISES_ALVO_ISO3)
     url = (
@@ -67,11 +62,11 @@ def extrair_indicador_banco_mundial(indicador: str, nome_ficheiro: str):
         registos = dados[1] if len(dados) > 1 else []
 
         if not registos:
-            print(f"[WARN] Sem registos na página {pagina}.")
+            print(f"Sem registos na página {pagina}.")
             break
 
         todos_os_registos.extend(registos)
-        print(f"[OK] Página {pagina}/{meta.get('pages')} — {len(registos)} registos")
+        print(f"Página {pagina}/{meta.get('pages')} — {len(registos)} registos")
 
         if pagina >= meta.get("pages", 1):
             break
@@ -85,13 +80,12 @@ def extrair_indicador_banco_mundial(indicador: str, nome_ficheiro: str):
     with open(caminho, "w", encoding="utf-8") as f:
         json.dump([{"total": len(todos_os_registos)}, todos_os_registos], f, ensure_ascii=False, indent=2)
 
-    print(f"[SAVE] Guardado em: {caminho}")
+    print(f"Guardado em: {caminho}")
     return todos_os_registos
 
 
-# =============================================================================
-# FUNÇÃO: Scraping da Wikipedia (CORRIGIDA)
-# =============================================================================
+
+#scraping da Wikipedia 
 def extrair_velocidades_wikipedia():
     url = "https://en.wikipedia.org/wiki/List_of_countries_by_Internet_connection_speeds"
     print(f"\n[SCRAPING] Wikipedia: {url}")
@@ -107,13 +101,12 @@ def extrair_velocidades_wikipedia():
     tabelas = soup.find_all("table", {"class": "wikitable"})
 
     if not tabelas:
-        print("[WARN] Nenhuma tabela wikitable encontrada.")
+        print("Nenhuma tabela wikitable encontrada.")
         return
 
     for tabela in tabelas:
         colunas_verificar = [str(th.text).lower() for th in tabela.find_all("th")]
         if any("speed" in c or "mbit" in c or "country" in c for c in colunas_verificar):
-            # 🌟 CORREÇÃO: Converter a string HTML num stream em memória com StringIO
             html_stream = StringIO(str(tabela))
             df = pd.read_html(html_stream)[0]
 
@@ -123,34 +116,30 @@ def extrair_velocidades_wikipedia():
             print(f"[OK] Colunas: {df.columns.tolist()}")
             return
 
-    print("[WARN] Nenhuma tabela com colunas de velocidade encontrada.")
+    print("Nenhuma tabela com colunas de velocidade encontrada.")
 
 
-# =============================================================================
-# MAIN
-# =============================================================================
+#main
 if __name__ == "__main__":
-    print("=" * 60)
-    print("PIPELINE DE EXTRAÇÃO — VERSÃO CORRIGIDA")
-    print("Objetivo: extrair dados a nível de PAÍSES INDIVIDUAIS")
-    print("============================================================")
+    print("PIPELINE DE EXTRAÇÃO")
+    print("Objetivo: extrair dados a nível de países individuais")
 
-    # 1. Internet usage
+    # internet usage
     extrair_indicador_banco_mundial(
         indicador="IT.NET.USER.ZS",
         nome_ficheiro="internet_usage_all.json"
     )
 
-    # 2. PIB
+    #PIB
     extrair_indicador_banco_mundial(
         indicador="NY.GDP.MKTP.CD",
         nome_ficheiro="pib_all.json"
     )
 
-    # 3. Velocidades de internet (Wikipedia)
+    # velocidades de internet (Wikipedia)
     extrair_velocidades_wikipedia()
 
-    print("\n" + "=" * 60)
+    
     print("Extração concluída com sucesso!")
-    print("=" * 60)
+    
 

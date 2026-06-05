@@ -2,7 +2,7 @@
 
 O objetivo principal deste projeto é conceber e implementar um pipeline de dados (ETL) para analisar a relação entre o desenvolvimento económico (PIB) e a infraestrutura digital (Uso e Velocidade de Internet) à escala global.
 
-**Estado Atual:** Projeto Concluído (Pipeline ETL completo + Dashboard Power BI).
+**Estado Atual:** Semana 3 (Load / Modelação de Dados) concluída.
 
 ---
 
@@ -25,10 +25,8 @@ A extração foca-se em três pilares, garantindo a rastreabilidade e integridad
 │   ├── transform.py         # Limpeza, Data Quality e cruzamento
 │   └── load.py              # Modelação em Star Schema e carregamento SQL
 ├── docs/                    # Relatórios e documentação adicional
-│   └── relatorio_qualidade_semana2.md  
 ├── .env                     # Configurações de API 
 ├── requirements.txt         # Dependências do projeto
-├── PF_extração.pbix         # Ficheiro final do Dashboard Power BI
 └── README.md                # Documentação principal
 ```
 
@@ -52,9 +50,6 @@ graph TD
     I -->|load.py: Criação Star Schema| J[(SQLite: fct_economy_internet)]
     I -->|load.py: Tabela Dimensão| K[(SQLite: dim_countries)]
     I -->|load.py: Tabela Dimensão| L[(SQLite: dim_time)]
-
-    %% Presentation Phase
-    I -->|Importação de Dados| M[Power BI: Dashboard Interativo]
 ```
     
 # 4. Fases do Pipeline e Decisões Técnicas
@@ -80,15 +75,6 @@ Semana 3: Carregamento (Load & Star Schema)
 
 - Script integrado que verifica de forma autónoma se o volume de dados na tabela de factos corresponde exatamente aos registos transformados na staging area.
 
-Semana 4: Visualização de Dados (Power BI)**
-- Ligação aos dados processados localmente, garantindo que o Power BI atua apenas como camada semântica e visual (não refazendo a extração).
-  
-- Criação de um dashboard interativo dividido em duas páginas analíticas: **Panorama Global** (visão macro económica e geográfica) e **Rankings e Evolução** (análise temporal e top performers).
-
-- Uso avançado de *Azure Maps* com camadas de bolhas (escaladas pela velocidade) e *tooltips* customizados para cruzar UX geográfico com métricas de PIB e Uso de Internet.
-  
-- Normalização estética de variáveis (ex: de `avg_connection_speed_mbit` para "Velocidade de Internet (Mbps)") para garantir total clareza e adequação ao utilizador final.
-
 # 5. Como Executar o Projeto
 Instalar dependências:
 
@@ -110,11 +96,5 @@ python src/transform.py
 
 ## 3: Carregamento para a Base de Dados
 python src/load.py
-
-
-# 6. Como Visualizar o Dashboard Final
-Uma vez que o projeto utiliza o Power BI Desktop, para visualizar a camada analítica final:
-
-**Ficheiro Interativo:** Fazer download do ficheiro `PF_extração.pbix` e abri-lo no Microsoft Power BI Desktop. *(Nota: Por razões de segurança de credenciais, o ficheiro lê os dados a partir da cópia local gerada pelo script Python).*
 
 ---
